@@ -59,6 +59,12 @@ export class MqttService {
   }
 
   publishState(data: string) {
+    if (!this.isConnected) {
+      this.logger.log(
+        'MQTT client is not connected. Attempting to reconnect...',
+      );
+      this.reconnect();
+    }
     if (this.isConnected) {
       this.mqttClient = this.mqttClient.publish(this.topic, data);
     }
