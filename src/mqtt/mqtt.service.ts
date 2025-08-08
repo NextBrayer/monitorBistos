@@ -11,7 +11,7 @@ export class MqttService {
   private isConnected: boolean;
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   constructor() {
-    this.broker = 'localhost';
+    this.broker = '192.168.137.1';
     this.topic = '1883';
     this.topic = 'data';
     this.port = undefined;
