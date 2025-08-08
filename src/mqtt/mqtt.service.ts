@@ -15,6 +15,7 @@ export class MqttService {
     this.topic = '1883';
     this.topic = 'data';
     this.port = undefined;
+    this.logger.log('Connecting to MQTT broker...');
     this.connect('localhost', 'data', 1883);
   }
 
