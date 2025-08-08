@@ -12,16 +12,15 @@ export class MqttService {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   constructor() {
     this.broker = '192.168.137.1';
-    this.topic = '1883';
     this.topic = 'data';
-    this.port = undefined;
+    this.port = 1883;
     this.logger.log(
       'Connecting to MQTT broker...',
       this.broker,
       this.topic,
       this.port,
     );
-    this.connect('localhost', 'data', 1883);
+    this.connect(this.broker, this.topic, this.port);
   }
 
   connect(broker: string, topic: string, port: number) {
