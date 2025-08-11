@@ -5,7 +5,7 @@ import { join } from 'path';
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
-  private readonly filePath = '/home/nextronic/queue.json';
+  private readonly filePath = 'queue.json';
   private messages: string[] = [];
 
   constructor() {

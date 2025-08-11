@@ -8,7 +8,7 @@ export class MqttService implements OnModuleDestroy {
   private mqttClient: mqtt.MqttClient;
   private isConnected = false;
 
-  private broker = '192.168.137.1';
+  private broker = '127.0.0.1';
   private port = 1883;
   private topic = 'data';
 
@@ -18,7 +18,9 @@ export class MqttService implements OnModuleDestroy {
 
   private connect() {
     this.logger.log(`Connecting to MQTT broker: ${this.broker}:${this.port}`);
-    this.mqttClient = mqtt.connect(`mqtt://${this.broker}:${this.port}`);
+    this.mqttClient = mqtt.connect(`mqtt://${this.broker}:${this.port}`, {
+      reconnectPeriod: 10000,
+    });
 
     this.mqttClient.on('connect', () => {
       this.isConnected = true;
@@ -57,7 +59,7 @@ export class MqttService implements OnModuleDestroy {
       if (err) {
         this.logger.error(`Publish error: ${err.message} → Queuing`);
         this.queueService.push(data);
-      }
+      } else this.logger.log('messege published successufuly');
     });
   }
 
