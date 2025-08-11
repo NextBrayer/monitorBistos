@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import * as hl7 from 'simple-hl7';
 import { MqttService } from '../mqtt/mqtt.service';
+import { ALL } from 'dns';
 
 @Injectable()
 export class MonitorService implements OnModuleInit, OnModuleDestroy {
@@ -38,6 +39,7 @@ export class MonitorService implements OnModuleInit, OnModuleDestroy {
       patientName: patientName,
       patientSex: pid?.getField(8) || null,
       observations: [],
+      alarms: [],
     };
 
     const obxSegments = msg.getSegments('OBX');
@@ -71,7 +73,7 @@ export class MonitorService implements OnModuleInit, OnModuleDestroy {
 
       if (!isAlarm) {
         parsed.observations.push(obxObj);
-      }
+      } else parsed.alarms.push(obxObj);
     }
 
     return parsed;
