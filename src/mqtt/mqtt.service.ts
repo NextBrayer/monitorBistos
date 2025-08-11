@@ -1,77 +1,69 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import * as mqtt from 'mqtt';
-import { Logger } from '@nestjs/common';
+import { QueueService } from '../queue/queue.service';
+
 @Injectable()
-export class MqttService {
-  private logger = new Logger('NETWORK');
-  private mqttClient;
-  private topic;
-  private port;
-  private broker;
-  private isConnected: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  constructor() {
-    this.broker = '192.168.137.1';
-    this.topic = 'data';
-    this.port = 1883;
-    this.logger.log(
-      'Connecting to MQTT broker...',
-      this.broker,
-      this.topic,
-      this.port,
-    );
-    this.connect(this.broker, this.topic, this.port);
+export class MqttService implements OnModuleDestroy {
+  private readonly logger = new Logger(MqttService.name);
+  private mqttClient: mqtt.MqttClient;
+  private isConnected = false;
+
+  private broker = '192.168.137.1';
+  private port = 1883;
+  private topic = 'data';
+
+  constructor(private readonly queueService: QueueService) {
+    this.connect();
   }
 
-  connect(broker: string, topic: string, port: number) {
-    if (this.broker !== broker || this.topic !== topic || this.port !== port) {
-      this.broker = broker;
-      this.port = port;
-      this.topic = topic;
-      this.isConnected = false;
-      try {
-        this.mqttClient = mqtt.connect(`mqtt://${broker}`);
-        this.mqttClient.on('connect', this.onMqttConnect.bind(this));
-        this.mqttClient.on('disconnect', this.onMqttDisConnect.bind(this));
-        this.mqttClient.on('message', this.onMqttMessage.bind(this));
-      } catch (error) {
-        this.logger.log(error);
+  private connect() {
+    this.logger.log(`Connecting to MQTT broker: ${this.broker}:${this.port}`);
+    this.mqttClient = mqtt.connect(`mqtt://${this.broker}:${this.port}`);
+
+    this.mqttClient.on('connect', () => {
+      this.isConnected = true;
+      this.logger.log('✅ Connected to MQTT broker');
+      this.flushQueue();
+    });
+
+    this.mqttClient.on('close', () => {
+      if (this.isConnected) {
+        this.logger.warn('⚠️ MQTT connection lost');
       }
-    }
-  }
-  reconnect() {
-    try {
-      this.mqttClient = mqtt.connect(`mqtt://${this.broker}`);
-      this.mqttClient.on('connect', this.onMqttConnect.bind(this));
-      this.mqttClient.on('disconnect', this.onMqttDisConnect.bind(this));
-      this.mqttClient.on('message', this.onMqttMessage.bind(this));
-    } catch (error) {
-      this.logger.log(error);
-    }
-  }
-  onMqttMessage(data) {
-    this.logger.log(data);
+      this.isConnected = false;
+    });
+
+    this.mqttClient.on('error', (err) => {
+      this.logger.error(`MQTT Error: ${err.message}`);
+    });
   }
 
-  onMqttConnect() {
-    this.isConnected = true;
-    this.logger.log('Connected');
-  }
-
-  onMqttDisConnect() {
-    this.isConnected = false;
-    this.logger.log('DisConnected');
+  private flushQueue() {
+    const messages = this.queueService.popAll();
+    if (messages.length > 0) {
+      this.logger.log(`Flushing ${messages.length} queued messages...`);
+      messages.forEach((msg) => this.publishState(msg));
+    }
   }
 
   publishState(data: string) {
     if (!this.isConnected) {
-      this.logger.log(
-        'MQTT client is not connected. Attempting to reconnect...',
-      );
-      this.reconnect();
+      this.logger.warn('MQTT not connected → Queuing message');
+      this.queueService.push(data);
+      return;
     }
-    if (this.isConnected) {
-      this.mqttClient = this.mqttClient.publish(this.topic, data);
+
+    this.mqttClient.publish(this.topic, data, (err) => {
+      if (err) {
+        this.logger.error(`Publish error: ${err.message} → Queuing`);
+        this.queueService.push(data);
+      }
+    });
+  }
+
+  onModuleDestroy() {
+    if (this.mqttClient) {
+      this.mqttClient.end(true);
     }
   }
 }
